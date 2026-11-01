@@ -1,0 +1,52 @@
+# PICO-8 sprite source. Each block: '@ x y name' (pixel position on the 128x128 sheet),
+# then the rows. '.' = transparent (color 14), 0-9/a-f = pico-8 palette colors.
+# Edit and run: python tools/build.py
+
+@ 0 48 sprite 96 - life icon (head)
+.444444.
+44444444
+4ffffff4
+f0ffff0f
+ffffffff
+.ffffff.
+..0770..
+.007700.
+
+@ 8 48 sprite 97 - secret plans folder
+........
+999.....
+9aa9999.
+9aaaaaa9
+9aaaaaa9
+9aaaaaa9
+9aaaaaa9
+99999999
+
+@ 16 48 sprites 98-100 - parachute canopy
+......cccc7887cccc......
+...ccccccc7887ccccccc...
+.ccccccccc7887ccccccccc.
+777777777778877777777777
+888888888888888888888888
+777777777778877777777777
+cccccccccc7887cccccccccc
+cc..cccccc7887cccccc..cc
+
+@ 40 48 sprites 101-104/117-120 - escape car
+................................
+................................
+..........77777777777777........
+.........7777777777777777.......
+........3ccccc3ccccc3cccc3......
+.......3cccccc3ccccc3ccccc3.....
+......3ccccccc3ccccc3cccccc3....
+..333333333333333333333333333...
+.3bbbbbbbbbbbbbbbbbbbbbbbbbbb3..
+.3bbbbbbbbbbbbbbbbbbbbbbbbbbaa3.
+3bbbbbbbbbbbb3bbbbbbbbbbbbbbbb3.
+3bbbb000bbbbb3bbbbbbbbb000bbbb33
+.333000003333333333333000003333.
+...0006000.............0006000..
+...0066600.............0066600..
+....00000...............00000...
+
