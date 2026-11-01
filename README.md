@@ -5,6 +5,7 @@ Jogo arcade de espionagem para **PICO-8**: um agente secreto britânico de smoki
 ![título](docs/screenshots/title.png) ![ação](docs/screenshots/enemies.png) ![escuro](docs/screenshots/dark.png)
 
 ## Jogar
+- **Online:** https://frpsouza.github.io/secretagentman/
 - **PICO-8:** `load secretagentman.p8` e `run`
 - **Navegador:** abra `web/index.html`
 
