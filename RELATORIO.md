@@ -59,7 +59,12 @@ Jogo arcade para **PICO-8** feito a partir de [conceitos.md](conceitos.md) e da 
 secretagentman.p8          cartucho final (gerado)
 web/index.html, index.js   versão jogável no navegador (gerada pelo PICO-8)
 fontes/
-  lua/game.lua             todo o código do jogo (~4.900 de 8.192 tokens)
+  lua/                     código do jogo (~5.700 de 8.192 tokens), um módulo por aba do editor:
+    main.lua               estado global, utilitários, _init/_update/_draw
+    level.lua              montagem do prédio (poços, escadas, portas, lustres) e entidades
+    physics.lua            movimento comum a jogador e inimigos, elevadores, mortes
+    actors.lua             jogador, inimigos (IA e saque do revólver), tiros, spawn, câmera
+    draw.lua               título, prédio, carro, personagens, escuridão, HUD
   sprites/player.txt       sprites do agente (pixel art em ASCII)
   sprites/enemy.txt        sprites dos inimigos
   sprites/items.txt        vida, pasta, paraquedas, carro

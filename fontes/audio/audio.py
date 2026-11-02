@@ -57,7 +57,7 @@ def drums(text, fill=False):
 
 
 # ---------------------------------------------------------------- sfx
-# index: (notes, speed). Indices are referenced by sfx(n) in game.lua.
+# index: (notes, speed). Indices are referenced by sfx(n) in fontes/lua/*.lua.
 SFX = {
     0: ([(60, 6, 7, 0), (48, 6, 6, 0), (36, 6, 4, 5), (30, 6, 2, 5)], 3),  # player shot
     1: ([(52, 6, 6, 0), (40, 6, 5, 0), (30, 6, 3, 5)], 4),  # enemy shot

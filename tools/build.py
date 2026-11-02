@@ -1,6 +1,6 @@
 """Builds secretagentman.p8 from the sources in fontes/.
 
-  fontes/lua/game.lua       game code
+  fontes/lua/*.lua          game code, one module per pico-8 editor tab (MODULES order)
   fontes/sprites/*.txt      sprite sheet (ASCII pixel art)
   fontes/audio/audio.py     sound effects and music
 
@@ -19,6 +19,8 @@ SRC = os.path.join(ROOT, "fontes")
 OUT = os.path.join(ROOT, "secretagentman.p8")
 sys.path.insert(0, os.path.join(SRC, "audio"))
 import audio  # noqa: E402
+
+MODULES = ["main", "level", "physics", "actors", "draw"]
 
 PAL = [(0, 0, 0), (29, 43, 83), (126, 37, 83), (0, 135, 81), (171, 82, 54), (95, 87, 79),
        (194, 195, 199), (255, 241, 232), (255, 0, 77), (255, 163, 0), (255, 236, 39),
@@ -97,8 +99,11 @@ def count_tokens(code):
 
 
 def main():
-    with open(os.path.join(SRC, "lua", "game.lua"), encoding="utf-8") as f:
-        code = f.read()
+    parts = []
+    for m in MODULES:
+        with open(os.path.join(SRC, "lua", m + ".lua"), encoding="utf-8") as f:
+            parts.append(f.read().strip("\n"))
+    code = "\n-->8\n".join(parts)  # -->8 starts a new tab in the pico-8 editor
     tokens = count_tokens(code)
     print("approx tokens: %d / 8192, chars: %d / 65535" % (tokens, len(code)))
     if tokens > 8192:

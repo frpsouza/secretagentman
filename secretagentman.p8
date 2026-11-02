@@ -3,8 +3,10 @@ version 41
 __lua__
 -- secret agent man
 -- arcade spy action
+-- main: state, helpers and the pico-8 callbacks
 
 nf,ww=12,344
+wk=split"1,2,32,33,34,35"
 dm=split"0,0,0,1,2,0,5,13,2,4,9,3,1,1,2,4"
 
 function _init()
@@ -42,6 +44,72 @@ function cprint(s,y,c)
  print(s,x,y,c)
 end
 
+function _update()
+ t+=1
+ it-=1
+ while stat(30) do
+  if (stat(31)=="i") inv,it=not inv,30
+ end
+ if mode=="title" then
+  if stt>0 then
+   stt+=1
+   if (stt>30) newgame()
+  elseif t>20 and (btnp(4) or btnp(5)) then
+   stt=1 sfx(8)
+  end
+ elseif mode=="play" then
+  for s in all(shafts) do upcar(s) end
+  if chute then
+   chute.k+=1
+   if (chute.k>70) chute=nil
+  end
+  upplayer()
+  for e in all(ens) do upenemy(e) end
+  upbul()
+  spawn()
+  for q in all(pops) do
+   q.y-=.5 q.t-=1
+   if (q.t<0) del(pops,q)
+  end
+  mt-=1
+  camfollow()
+ elseif mode=="esc" then
+  et+=1
+  if et<50 then
+   p.x+=1 p.mv,p.dir=true,1
+  elseif et==50 then
+   p.st="gone" sfx(10)
+  elseif et>70 then
+   cv+=.08 carx+=cv
+  end
+  -- exhaust smoke: a puff on ignition, a thick trail while pulling away
+  if (et>50 and et<150 and (et<110 or et%3==0)) add(smk,{x=carx+1,y=413,r=1,l=24})
+  for q in all(smk) do
+   q.x-=.4 q.y-=.15 q.r+=.1 q.l-=1
+   if (q.l<0) del(smk,q)
+  end
+  if (et==200) addsc(100*lvl) sfx(11)
+  if et>220 and (btnp(4) or btnp(5)) then
+   lvl+=1 setup()
+   if (mus) music(0)
+  end
+  mt-=1
+  camfollow(et>60 and carx+16)
+ elseif t>60 and (btnp(4) or btnp(5)) or t>300 then
+  title()
+ end
+end
+
+function _draw()
+ cls()
+ palt(0,false) palt(14,true)
+ if mode=="title" then drtitle() else drworld() hud() end
+ -- invincible toggle notice, fades out in 1s
+ if (it>0) cprint("invincible mode "..(inv and "on" or "off"),60,it>20 and 7 or it>12 and 6 or it>6 and 13 or 5)
+end
+-->8
+-- level: building layout and entities
+
 function newgame()
  score,lives,lvl=0,3,1
  setup()
@@ -49,7 +117,7 @@ end
 
 function setup()
  mode,t="play",0
- shafts,escs,doors,lamps,lit,ens,bul,pops={},{},{},{},{[0]=true},{},{},{}
+ shafts,escs,doors,lamps,lit,ens,bul,pops,smk={},{},{},{},{[0]=true},{},{},{},{}
  for d in all{{96,1,5},{24,3,8},{192,5,10},{112,8,12}} do
   add(shafts,{x=d[1],t=d[2],b=d[3],y=feet(d[2]+flr(rnd(d[3]-d[2]+1))),v=0,w=30})
  end
@@ -77,6 +145,8 @@ end
 function newent(x,f)
  return {x=x,f=f,y=feet(f),st="walk",dir=1,jy=0,jv=0,cd=0,sht=0,spd=1,sx=x,sf=f,tt=0,wd=0}
 end
+-->8
+-- physics: movement shared by the player and enemies, lifts
 
 function shaft(x,f)
  for s in all(shafts) do
@@ -135,14 +205,17 @@ function act(e,mx,u,d)
   local c,k,ed=findesc(e,u,d)
   if c then e.st,e.es,e.k,e.ed="esc",c,k,ed return end
   -- faster in the air so a jump clears a shaft (24px)
+  local ox=e.x
   e.x=mid(12,e.x+mx*e.spd*(e.jy>0 and 2 or 1),e.xr or 244)
   if e.jy==0 then
    s=shaft(e.x,e.f)
    if s then
-    local ff=feet(e.f)
+    local ff,ok=feet(e.f),s.v==0 or e~=p
     e.sh=s
-    if s.y==ff then e.st="car"
-    elseif s.y-32==ff then e.st="roof"
+    if s.y==ff and ok then e.st="car"
+    elseif s.y-32==ff and ok then e.st="roof"
+    -- the player waits at the lift door for the car to stop; only jumps fall in
+    elseif e==p and not shaft(ox,e.f) then e.x=ox
     elseif e.f<s.b then e.st,e.vy,e.fy="fall",0,e.y
     elseif s.y>e.y-hgt(e) then kill(e,"crush") end
    end
@@ -197,10 +270,12 @@ function upcar(s)
  end
  s.y+=s.v
 end
+-->8
+-- actors: player, enemies, bullets, spawning, camera
 
 function fire(e,pl)
  add(bul,{x=e.x+e.dir*7,y=e.y-e.jy-(e.cr and 4 or 14),dx=e.dir*(pl and 3 or 2),pl=pl,l=60})
- e.sht=8
+ e.sht=24
  sfx(pl and 0 or 1)
 end
 
@@ -303,13 +378,18 @@ function upenemy(e)
   if e.st~="esc" and e.st~="fall" then
    e.dir=sgn(dx)
    if e.cd<0 then
-    fire(e,false)
-    e.cd=max(20,70-lvl*8)+rnd(60)
+    -- draw and aim before firing (a warning for the player)
+    e.dw=(e.dw or 14)-1
+    if e.dw<1 then
+     fire(e,false)
+     e.dw,e.cd=nil,max(20,70-lvl*8)+rnd(60)
+    end
    elseif e.sht<0 and abs(dx)>24 and e.tt%60<30 then
     mx=e.dir
    end
   end
  else
+  e.dw=nil
   if (e.tt<0) e.wd,e.tt=rnd{-1,1},60+rnd(90)
   mx,u,d=e.wd,p.y<e.y-8,p.y>e.y+8
  end
@@ -371,66 +451,8 @@ function camfollow(tx)
  local ty=mid(-48,p.y-72,312)
  cx+=(tx-cx)*.25 cy+=(ty-cy)*.25
 end
-
-function _update()
- t+=1
- it-=1
- while stat(30) do
-  if (stat(31)=="i") inv,it=not inv,30
- end
- if mode=="title" then
-  if stt>0 then
-   stt+=1
-   if (stt>30) newgame()
-  elseif t>20 and (btnp(4) or btnp(5)) then
-   stt=1 sfx(8)
-  end
- elseif mode=="play" then
-  for s in all(shafts) do upcar(s) end
-  if chute then
-   chute.k+=1
-   if (chute.k>70) chute=nil
-  end
-  upplayer()
-  for e in all(ens) do upenemy(e) end
-  upbul()
-  spawn()
-  for q in all(pops) do
-   q.y-=.5 q.t-=1
-   if (q.t<0) del(pops,q)
-  end
-  mt-=1
-  camfollow()
- elseif mode=="esc" then
-  et+=1
-  if et<50 then
-   p.x+=1 p.mv,p.dir=true,1
-  elseif et==50 then
-   p.st="gone" sfx(10)
-  elseif et>70 then
-   cv+=.08 carx+=cv
-  end
-  if (et==200) addsc(100*lvl) sfx(11)
-  if et>220 and (btnp(4) or btnp(5)) then
-   lvl+=1 setup()
-   if (mus) music(0)
-  end
-  mt-=1
-  camfollow(et>60 and carx+16)
- elseif t>60 and (btnp(4) or btnp(5)) or t>300 then
-  title()
- end
-end
-
--- drawing
-
-function _draw()
- cls()
- palt(0,false) palt(14,true)
- if mode=="title" then drtitle() else drworld() hud() end
- -- invincible toggle notice, fades out in 1s
- if (it>0) cprint("invincible mode "..(inv and "on" or "off"),60,it>20 and 7 or it>12 and 6 or it>6 and 13 or 5)
-end
+-->8
+-- draw: title, building, entities, lights out, hud
 
 function drtitle()
  if t<40 then
@@ -484,7 +506,8 @@ function drworld()
  line(276,380,276,415,5) rectfill(272,378,280,380,5) pset(276,381,10)
  for s in all(shafts) do drcar(s) end
  for f=max(1,f0),f1 do drfront(f) end
- spr(101,carx,400,4,2)
+ for q in all(smk) do circfill(q.x,q.y,q.r,q.l>16 and 6 or q.l>8 and 13 or 5) end
+ drcarv()
  if chute then
   -- deflating canopy: sinks, flattens and spreads, drifting behind the agent
   local k=chute.k
@@ -567,6 +590,16 @@ function drfloor(f)
  end
 end
 
+-- the mini: body sprite plus wheels whose tread marks turn as it rolls
+function drcarv()
+ spr(101,carx,400,4,2)
+ for wx in all{7,25} do
+  local x,a=carx+wx,carx/19
+  circfill(x,413,3,0) circfill(x,413,1,6)
+  for i=0,2 do pset(x+cos(a+i/3)*2.4,413+sin(a+i/3)*2.4,5) end
+ end
+end
+
 function drcar(s)
  local x,y=s.x,s.y
  line(x+11,s.t*32+4,x+11,y-32,5)
@@ -598,11 +631,19 @@ function drent(e)
   if k<8 then sspr(sx,72,24,24,e.x-(e.dir<0 and 8 or 16),y-24-k*(8-k)/4,24,24,e.dir<0)
   else sspr(sx,64,24,8,e.x-12,y-8,24,8,e.dir>0) end
   return
- elseif e.cr then f=e.sht>0 and 5 or 4
- elseif e.jy>0 or e.st=="fall" or e.st=="para" then f=e.sht>0 and 14 or 6
- elseif e.sht>0 then f=3
- elseif e.mv then f=1+t\4%2 end
- if (e.en) f=f==3 and 11 or f<3 and f+8 or 8
+ end
+ local s,w=e.sht,t\3%6
+ if e.cr then f=s>0 and 5 or 4
+ elseif e.jy>0 or e.st=="fall" or e.st=="para" then f=s>0 and 14 or 6
+ -- revolver: drawn and aimed (27 -> 3), held after the shot, lowered again
+ elseif e.dw then f=e.dw>7 and 27 or 3
+ elseif s>16 or s>0 and not e.mv then f=s>4 and 3 or 27
+ elseif e.mv then
+  -- 6-frame walk cycle, body rises a pixel on the passing frames
+  f=wk[w+1]
+  if (w%3==2) y-=1
+ end
+ if (e.en) f=f==3 and 11 or f==27 and 28 or f<3 and f+8 or f>31 and f+4 or 8
  if e.st=="para" then
   -- full canopy, breathing with the wind
   local h=11+sin(t/24)*1.5
@@ -610,6 +651,8 @@ function drent(e)
   line(e.x-13,y-33,e.x-4,y-20,6) line(e.x+13,y-33,e.x+3,y-20,6)
  end
  spr(f\8*48+f%8*2,e.x-8,y-24,2,3,e.dir<0)
+ -- muzzle flash
+ if (s>=21) local gy=y-(e.cr and 4 or 14) circfill(e.x+e.dir*9,gy,1,10) pset(e.x+e.dir*9,gy,7)
 end
 
 -- lights out: remap screen rows of dark floors
@@ -653,17 +696,17 @@ eeee00707000eeeeeeee00707000eeeeeeee00707000eeeeeeee00707000ee55eeeeeeeeeeeeeeee
 eeee00777000eeeeeeee00777000eeeeeeee00777000eeeeeeee0077700000f5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00777000eeeeeeeeeeeeeeeeeeee
 eeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00070000eeeeeeeeeeeeeeeeeeee
 eeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeeeee4444eeeeeeeeeeee4444eeeeeeeeee00070000eeeeeeeeeeeeeeeeeeee
-eeee0007f000eeeeeeee0007f000eeeeeeee0007f000eeeeeeee0007f000eeeeeeeee444444eeeeeeeeee444444eeeeeeeee0007f000eeeeeeeeeeeeeeeeeeee
+eeee0007f000eeeeeeee0f070000eeeeeeee00f70000eeeeeeee0007f000eeeeeeeee444444eeeeeeeeee444444eeeeeeeee0007f000eeeeeeeeeeeeeeeeeeee
 eeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeee00000000eeeeeeeeeeeeeeeeeeee
 eeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee4fff0feeeeeeeeee4fff0feeeeeeeeee000000eeeeeeeeeeeeeeeeeeeee
 eeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeeee000000eeeeeeeeeeeeeeeeeeeee
-eeeee00e00eeeeeeeeeee000000eeeeeeeeee00000eeeeeeeeeee00e00eeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeee0000000eeeeeeeeeeeeeeeeeeeee
-eeeee00e00eeeeeeeeee000ee00eeeeeeeeeee000eeeeeeeeeeee00e00eeeeeeeeee00777000eeeeeeee00777000eeeeeee000eee000eeeeeeeeeeeeeeeeeeee
-eeeee00e00eeeeeeeeee00eeee00eeeeeeeeee000eeeeeeeeeeee00e00eeeeeeeee0007070000eeeeee0007070000e55eee00eeeee00eeeeeeeeeeeeeeeeeeee
-eeeee00e00eeeeeeeee00eeeee00eeeeeeeeee00eeeeeeeeeeeee00e00eeeeeeeee00077700f0eeeeee00077700000f5eeee00eee00eeeeeeeeeeeeeeeee444e
-eeeee00e00eeeeeeeee00eeeeee00eeeeeeeee00eeeeeeeeeeeee00e00eeeeeeeee00000000000eeeee00000000000eeeeee000ee000eeeeee00000000077ff4
-eeeee00e00eeeeeeee00eeeeeee00eeeeeeeee00eeeeeeeeeeeee00e00eeeeeeeee00eeeee000eeeeee00eeeee000eeeeeeeeeeeeeeeeeeee000000000007ff4
-eeeee000e000eeeeee000eeeeee000eeeeeeee0000eeeeeeeeeee000e000eeeeee000eeeee0000eeee000eeeee0000eeeeeeeeeeeeeeeeeeee000ee0000eeeee
+eeeee00e00eeeeeeeeeee550000eeeeeeeeee550000eeeeeeeeee00e00eeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeee0000000eeeeeeeeeeeeeeeeeeeee
+eeeee00e00eeeeeeeeee55eeee00eeeeeeeee55ee00eeeeeeeeee00e00eeeeeeeeee00777000eeeeeeee00777000eeeeeee000eee000eeeeeeeeeeeeeeeeeeee
+eeeee00e00eeeeeeeeee55eeeee00eeeeeee55eee00eeeeeeeeee00e00eeeeeeeee0007070000eeeeee0007070000e55eee00eeeee00eeeeeeeeeeeeeeeeeeee
+eeeee00e00eeeeeeeee55eeeeee00eeeeee555eee00eeeeeeeeee00e00eeeeeeeee00077700f0eeeeee00077700000f5eeee00eee00eeeeeeeeeeeeeeeee444e
+eeeee00e00eeeeeeeee55eeeeeee00eeee55eeeee00eeeeeeeeee00e00eeeeeeeee00000000000eeeee00000000000eeeeee000ee000eeeeee00000000077ff4
+eeeee00e00eeeeeeee55eeeeeeee00eeee5eeeeee00eeeeeeeeee00e00eeeeeeeee00eeeee000eeeeee00eeeee000eeeeeeeeeeeeeeeeeeee000000000007ff4
+eeeee000e000eeeeee555eeeeeee000eeeeeeeeee000eeeeeeeee000e000eeeeee000eeeee0000eeee000eeeee0000eeeeeeeeeeeeeeeeeeee000ee0000eeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee4444eeeeeeeeeee444444eeeee
 eeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee444444eeeeeeeee44444444eeee
@@ -683,27 +726,27 @@ eee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeeeeeeeeeeeeeeee
 eee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000eeeeeeeee00000000eeee
 eee00000000000eeeee00000000000eeeee00000000000eeeee00000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000eeeeeeeee00000000eeee
 eee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000eee000eeeeeeee000ee000eeee
-eeeee00e00eeeeeeeeee00eee00eeeeeeeeeee000eeeeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00eeeee00eeeeeeee000ee000eeee
-eeeee00e00eeeeeeeee00eeeee00eeeeeeeeee00eeeeeeeeeeeee00e00eeeeeeeeeeeeeeeee000eeeeeeeeeeeeeeeeeeeeee00eee00eeeeeeeee000ee000eeee
-eeeee00e00eeeeeeeee00eeeee00eeeeeeeeee00eeeeeeeeeeeee00e00eeeeeee0000000000ffeeeeeeeeeeeeeeeeeeeeeee000ee000eeeeeeee000ee000eeee
-eeeee00e00eeeeeeee00eeeeeee00eeeeeeeee00eeeeeeeeeeeee00e00eeeeee00000000000ffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000ee0000eee
-eeeee000e000eeeeee000eeeeee000eeeeeeee0000eeeeeeeeeee000e000eeeee00ee000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeee00e00eeeeeeeeee55eeeee00eeeeeee55eee00eeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00eeeee00eeeeeeee000ee000eeee
+eeeee00e00eeeeeeeee55eeeeee00eeeeee555eee00eeeeeeeeee00e00eeeeeeeeeeeeeeeee000eeeeeeeeeeeeeeeeeeeeee00eee00eeeeeeeee000ee000eeee
+eeeee00e00eeeeeeeee55eeeeeee00eeee55eeeee00eeeeeeeeee00e00eeeeeee0000000000ffeeeeeeeeeeeeeeeeeeeeeee000ee000eeeeeeee000ee000eeee
+eeeee00e00eeeeeeee55eeeeeeee00eeee5eeeeee00eeeeeeeeee00e00eeeeee00000000000ffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000ee0000eee
+eeeee000e000eeeeee555eeeeeee000eeeeeeeeee000eeeeeeeee000e000eeeee00ee000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 e444444eeeeeeeeeeeeeee111178871111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 44444444999eeeeeeee111111178871111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-4ffffff49aa9999ee1111111117887111111111eeeeeeeeeee77777777777777eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-f0ffff0f9aaaaaa9777777777778877777777777eeeeeeeee7777777777777777eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-ffffffff9aaaaaa9888888888888888888888888eeeeeeee3ccccc3ccccc3cccc3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-effffffe9aaaaaa9777777777778877777777777eeeeeee3cccccc3ccccc3ccccc3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-ee0770ee9aaaaaa9111111111178871111111111eeeeee3ccccccc3ccccc3cccccc3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-e007700e9999999911ee1111117887111111ee11ee333333333333333333333333333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3bbbbbbbbbbbbbbbbbbbbbbbbbbb3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3bbbbbbbbbbbbbbbbbbbbbbbbbbaa3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3bbbbbbbbbbbb3bbbbbbbbbbbbbbbb3eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3bbbb000bbbbb3bbbbbbbbb000bbbb33eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee333000003333333333333000003333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0006000eeeeeeeeeeeee0006000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0066600eeeeeeeeeeeee0066600eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000eeeeeeeeeeeeeee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+4ffffff49aa9999ee1111111117887111111111eeeeeeeee77777777777777777eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+f0ffff0f9aaaaaa9777777777778877777777777eeeeeee7777777777777777777eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ffffffff9aaaaaa9888888888888888888888888eeeeeee5cccc5ccccccc5cccc5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+effffffe9aaaaaa9777777777778877777777777eeeeeee5cccc5ccccccc5ccccc5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ee0770ee9aaaaaa9111111111178871111111111eeeeeee5cccc5ccccccc5cccccc5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e007700e9999999911ee1111117887111111ee11eebbbbbbbbbbbbbbbbbbbbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee5333333333333333333333333333aa5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee5333333333353333333333333333335eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee85333333333353333337333333333335eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee85333333333353333333333333333335eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee66655555555555555555555555556666eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee55eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 0eeeeeeee0000000eeeeeeee0eeee00000000000eee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 0eeeeee000000000eefff4ee0eeee000000500000ef0500eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 0000000000000000eff0f44e0000000000050000ff00500eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -713,53 +756,53 @@ e000000000f00777fffff44ee00000000055500ffff0500eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 0000000000000000ee4444ee00000000000000000ee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeee000000eeeeeeeeeeeeee00000000000eee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee4444eeeeeeeeeeee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee444444eeeeeeeeeee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee44ffffeeeeeeeeeee55555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee4fff0feeeeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeeeeeeeeeeeeeeeeee44ffffeeeeeeeeeeefff0feeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e444eeeeeeeeeeeeeeeeeeeee000e0eeeeeeeeeeeeeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+444ffeeeeeeeeeeeeeeeeeee00050eeeeeeeeeeeeeeeeeeeeeeeeeeffeeeeeeeeeeee00fff0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+44f0ffeeeeeeeeeeeeeeeeee0050ffeeeeeeeeeeeeeeeeeeeeeee0777000eeeeeeee0000f000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+4ffffeeeeeeeeeeeeeeeeeee050f0e0ee0eeeeeeeeeeeeeeeeee00707000eeeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+4ffffee00eeeeeeeeeeeeeeee0ffff00000eeeeeeeeeeeeeeeee007770000eeeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+444fff0000eeeeeeeeeeeeee0effff0000e0eeeeeeeeeeeeeeee0007000000eeeeee00005000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e4eef770000eeeeeeeeeeeeeeee0ff000000eeeeeeeeeeeeeeee00070000ef55eeee005555500f55eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeee70770000eeeeeeeeeeeeee000000055000eeeeeeeeeeeeee00070000eeeeeeee00005000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eee007700000eeeeeeeeeeeeeee0000555000000eeeeeeeeeeee00000000eeeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eee000070f000eeeeeeeeeeeeee0000555000000eeeeeeeeeeeee000000eeeeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeee000070000eeeeeeeeeeeeeee000500000000eeeeeeeeeeeee000000eeeeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeee00000000eeeeeeeeeeeeeeee0000000000eeeeeeeeeeeeee00e00eeeeeeeee00000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeee00000000eeeeeeeeeeeeeeee00000000eeeeeeeeeeeeeee00e00eeeeeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeee000e000eeeeeeeeeeeeeeee00000000eeeeeeeeeeeeee00e00eeeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee000e000ee0eeeeeeeeeee000000e000ee0eeeeeeeeee00e00eeeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeee000e0000eeeeeeeeeeeee000000e0000eeeeeeeeeee00e00eeeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee000e0eeeeeeeeeeeeeeee00e000e0eeeeeeeeeeeee00e00eeeeeeeeeee00e00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeee0000eeeeeeeeeeeeeeeeeeee0000eeeeeeeeeeeee000e000eeeeeeeee000e000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-e444eeeeeeeeeeeeeeeeeeeee000e0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-444ffeeeeeeeeeeeeeeeeeee00050eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-44f0ffeeeeeeeeeeeeeeeeee0050ffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-4ffffeeeeeeeeeeeeeeeeeee050f0e0ee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-4ffffee00eeeeeeeeeeeeeeee0ffff00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-444fff0000eeeeeeeeeeeeee0effff0000e0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-e4eef770000eeeeeeeeeeeeeeee0ff000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeee70770000eeeeeeeeeeeeee000000055000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eee007700000eeeeeeeeeeeeeee0000555000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eee000070f000eeeeeeeeeeeeee0000555000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeee000070000eeeeeeeeeeeeeee000500000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeee00000000eeeeeeeeeeeeeeee0000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeee00000000eeeeeeeeeeeeeeee00000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeee000e000eeeeeeeeeeeeeeee00000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeee000e000ee0eeeeeeeeeee000000e000ee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeee000e0000eeeeeeeeeeeee000000e0000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeee000e0eeeeeeeeeeeeeeee00e000e0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeee0000eeeeeeeeeeeeeeeeeeee0000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeee4444eeeeeeeeeeee4444eeeeeeeeeeee4444eeeeeeeeeeee4444eeeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeee
+eeeee444444eeeeeeeeee444444eeeeeeeeee444444eeeeeeeeee444444eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeeeeeeeee00000eeeee
+eeeee44ffffeeeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeeeee55555eeeeeeeeeee55555eeeeeeeeeee55555eeeeeeeeeee55555eeeee
+eeeee4fff0feeeeeeeeee4fff0feeeeeeeeee4fff0feeeeeeeeee4fff0feeeeeeeee000000000eeeeeee000000000eeeeeee000000000eeeeeee000000000eee
+eeeee44ffffeeeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeeee44ffffeeeeeeeeeeefff0feeeeeeeeeeefff0feeeeeeeeeeefff0feeeeeeeeeeefff0feeeee
+eeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeeeeeeeeeffffeeeeee
+eeeeeeeffeeeeeeeeeeeeeeffeeeeeeeeeeeeeeffeeeeeeeeeeeeeeffeeeeeeeeeeee00fff0eeeeeeeeee00fff0eeeeeeeeee00fff0eeeeeeeeee00fff0eeeee
+eeeee0777000eeeeeeeee0777000eeeeeeeee0777000eeeeeeeee0777000eeeeeeee0000f000eeeeeeee0000f000eeeeeeee0000f000eeeeeeee0000f000eeee
+eeee00707000eeeeeeee00707000eeeeeeee00707000eeeeeeee00707000eeeeeeee000000000eeeeeee000000000eeeeeee000000000eeeeeee000000000eee
+eeee00777000eeeeeeee00777000eeeeeeee00777000eeeeeeee00777000eeeeeeee000000000eeeeeee000000000eeeeeee000000000eeeeeee000000000eee
+eeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee00005000eeeeeeee00005000eeeeeeee00005000eeeeeeee00005000eeee
+eeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee00070000eeeeeeee005555500eeeeeee005555500eeeeeee005555500eeeeeee005555500eee
+eeee0007f000eeeeeeee000700f0eeeeeeee00070f00eeeeeeee0007f000eeeeeeee00005000eeeeeeee00005000eeeeeeee00005000eeeeeeee00005000eeee
+eeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeee000000000eeeeeee000000000eeeeeee000000000eeeeeee000000000eee
+eeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eee
+eeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeeeee000000eeeeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eee
+eeeee005555eeeeeeeeee005555eeeeeeeeee005555eeeeeeeeee550000eeeeeeee00000000000eeeee00000000000eeeee00000000000eeeee00000000000ee
+eeeeee00e555eeeeeeee00eeee55eeeeeeeee00ee55eeeeeeeeeee55e000eeeeeee0000000000eeeeee0000000000eeeeee0000000000eeeeee0000000000eee
+eeeeee00ee55eeeeeeee00eeeee55eeeeeee00eee55eeeeeeeeeee55ee00eeeeeeeeee00ee55eeeeeeee00eeeee55eeeeeee00eee55eeeeeeeeeee55ee00eeee
+eeeeee00e55eeeeeeee00eeeeee55eeeeee000eee55eeeeeeeeeee55e00eeeeeeeeeee00e55eeeeeeee00eeeeee55eeeeee000eee55eeeeeeeeeee55e00eeeee
+eeeeee00e5eeeeeeeee00eeeeeee55eeee00eeeee55eeeeeeeeeee55e0eeeeeeeeeeee00e5eeeeeeeee00eeeeeee55eeee00eeeee55eeeeeeeeeee55e0eeeeee
+eeeeee00eeeeeeeeee00eeeeeeee55eeee0eeeeee55eeeeeeeeeee55eeeeeeeeeeeeee00eeeeeeeeee00eeeeeeee55eeee0eeeeee55eeeeeeeeeee55eeeeeeee
+eeeeee0000eeeeeeee000eeeeeee555eeeeeeeeee555eeeeeeeeee5555eeeeeeeeeeee0000eeeeeeee000eeeeeee555eeeeeeeeee555eeeeeeeeee5555eeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
