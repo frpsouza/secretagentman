@@ -71,8 +71,10 @@ function act(e,mx,u,d)
     -- lift doors are always open: no car on this floor means a fall
     local ff=feet(e.f)
     e.sh=s
-    if s.y==ff then e.st="car"
-    elseif s.y-32==ff then e.st="roof"
+    -- boarding steps fully inside, past the exit edge (else the next
+    -- frame would walk straight back out and the player looked stuck)
+    if s.y==ff then e.st,e.x="car",mid(s.x+5,e.x,s.x+18)
+    elseif s.y-32==ff then e.st,e.x="roof",mid(s.x+5,e.x,s.x+18)
     elseif e.f<s.b then e.st,e.vy,e.fy="fall",0,e.y
     elseif s.y>e.y-hgt(e) then kill(e,"crush") end
    end
