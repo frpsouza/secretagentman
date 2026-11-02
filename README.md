@@ -9,7 +9,7 @@ Jogo arcade de espionagem para **PICO-8**: um agente secreto britânico de smoki
 - **PICO-8:** `load secretagentman.p8` e `run`
 - **Navegador:** abra `web/index.html`
 
-**Controles:** ⬅️➡️ andar · ⬆️⬇️ elevador / escada rolante / porta vermelha (⬆️) / abaixar (⬇️) · **Z** atirar · **X** pular (pule e atire nos lustres para apagar a luz do andar).
+**Controles:** ⬅️➡️ andar · ⬆️⬇️ elevador / escada rolante / porta vermelha (⬆️) / abaixar (⬇️) · **Z** pular · **X** atirar · **I** modo invencível (pule e atire nos lustres para apagar a luz do andar).
 
 ## Desenvolvimento
 As fontes ficam em [`fontes/`](fontes/) (Lua, sprites em ASCII, áudio). Para gerar o cartucho:

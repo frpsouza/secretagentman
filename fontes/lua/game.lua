@@ -9,7 +9,8 @@ function _init()
  hi=dget(0)
  bm={}
  for b=0,255 do bm[b]=dm[b%16+1]+dm[b\16+1]*16 end
- mus=true
+ mus,inv,it=true,false,0
+ poke(0x5f2d,1) -- keyboard: i toggles invincible mode
  menuitem(1,"music on/off",function() mus=not mus music(mus and 0 or -1) end)
  title()
 end
@@ -65,7 +66,7 @@ function setup()
   add(lamps,{f=f,x=176,ok=true})
  end
  p=newent(64,0)
- p.y,p.st=-56,"para"
+ p.y,p.st,chute=-56,"para",nil
  cx,cy,spt,mt,carx=0,-48,300,0,296
  msg("mission "..lvl..": find the plans!",120)
 end
@@ -98,7 +99,7 @@ function hit(e,b)
 end
 
 function kill(e,why)
- if (e.st=="dead") return
+ if (e.st=="dead" or e==p and inv) return
  -- bodies keep riding the lift they died on
  e.rd=e.st=="car" and 0 or e.st=="roof" and 32 or nil
  e.st,e.dt,e.jy,e.cr,e.sht="dead",0,0,false,0
@@ -109,6 +110,12 @@ function kill(e,why)
   local v=why=="shot" and 10 or 30
   addsc(v) pop(e.x,e.y-28,v.."0")
  end
+end
+
+-- dead bodies: fly back while falling, keep riding the lift they died on
+function knock(e)
+ if e.rd then e.y=e.sh.y-e.rd
+ elseif e.dt<8 then e.x=mid(12,e.x-e.dir*.75,248) end
 end
 
 function land(e,y,st)
@@ -124,7 +131,8 @@ function act(e,mx,u,d)
  if st=="walk" then
   local c,k,ed=findesc(e,u,d)
   if c then e.st,e.es,e.k,e.ed="esc",c,k,ed return end
-  e.x=mid(12,e.x+mx*e.spd,e.xr or 244)
+  -- faster in the air so a jump clears a shaft (24px)
+  e.x=mid(12,e.x+mx*e.spd*(e.jy>0 and 2 or 1),e.xr or 244)
   if e.jy==0 then
    s=shaft(e.x,e.f)
    if s then
@@ -171,9 +179,11 @@ function upcar(s)
   if man then
    s.v=btn(2) and f>s.t and -1 or btn(3) and f<s.b and 1 or 0
   elseif s.v==0 then
+   -- the player standing near the shaft calls the car to their floor
+   local call=p.st=="walk" and p.f>=s.t and p.f<=s.b and abs(p.x-s.x-12)<48
    s.w-=1
-   if s.w<=0 then
-    s.tg=s.t+flr(rnd(s.b-s.t+1))
+   if call or s.w<=0 then
+    s.tg=call and p.f or s.t+flr(rnd(s.b-s.t+1))
     s.v=s.tg>f and 1 or s.tg<f and -1 or 0
     s.w=30
    end
@@ -196,7 +206,7 @@ function upplayer()
  e.cd,e.sht=max(e.cd-1,-1),max(e.sht-1,-1)
  if e.st=="dead" then
   e.dt+=1
-  if (e.rd) e.y=e.sh.y-e.rd
+  knock(e)
   if e.dt>90 then
    lives-=1
    if lives<1 then
@@ -210,7 +220,8 @@ function upplayer()
  end
  if e.st=="para" then
   e.y+=.6
-  if (e.y>=32) e.y,e.st=32,"walk"
+  -- the canopy is left behind to collapse on the roof
+  if (e.y>=32) e.y,e.st,chute=32,"walk",{x=e.x,d=e.dir,k=0}
   return
  end
  if e.st=="door" then
@@ -242,7 +253,7 @@ function upplayer()
     end
    end
   end
-  if (btnp(5) and not e.cr) e.jv=2.2 sfx(7)
+  if (btnp(4) and not e.cr) e.jv=2.2 sfx(7)
  end
  e.xr=e.f==nf and got==plans and 252 or 244
  act(e,mx,u,d)
@@ -261,7 +272,7 @@ function upplayer()
    end
   end
  end
- if btnp(4) and e.cd<0 and e.st~="fall" and e.st~="dead" then
+ if btnp(5) and e.cd<0 and e.st~="fall" and e.st~="dead" then
   local n=0
   for b in all(bul) do if (b.pl) n+=1 end
   if (n<2) fire(e,true) e.cd=8
@@ -272,7 +283,7 @@ function upenemy(e)
  e.cd,e.sht,e.tt=max(e.cd-1,-1),max(e.sht-1,-1),max(e.tt-1,-1)
  if e.st=="dead" then
   e.dt+=1
-  if (e.rd) e.y=e.sh.y-e.rd
+  knock(e)
   if (e.dt>45) del(ens,e)
   return
  end
@@ -360,6 +371,10 @@ end
 
 function _update()
  t+=1
+ it-=1
+ while stat(30) do
+  if (stat(31)=="i") inv,it=not inv,30
+ end
  if mode=="title" then
   if stt>0 then
    stt+=1
@@ -369,6 +384,10 @@ function _update()
   end
  elseif mode=="play" then
   for s in all(shafts) do upcar(s) end
+  if chute then
+   chute.k+=1
+   if (chute.k>70) chute=nil
+  end
   upplayer()
   for e in all(ens) do upenemy(e) end
   upbul()
@@ -405,9 +424,9 @@ end
 function _draw()
  cls()
  palt(0,false) palt(14,true)
- if mode=="title" then drtitle() return end
- drworld()
- hud()
+ if mode=="title" then drtitle() else drworld() hud() end
+ -- invincible toggle notice, fades out in 1s
+ if (it>0) cprint("invincible mode "..(inv and "on" or "off"),60,it>20 and 7 or it>12 and 6 or it>6 and 13 or 5)
 end
 
 function drtitle()
@@ -438,7 +457,7 @@ function drtitle()
  print("\^w\^tman",52,16,t>=118 and 7 or 8)
  if (stt>0 and t%4<2 or stt==0 and t%30<20) cprint("push button to start",102,7)
  cprint("hi-score "..sc(hi),112,9)
- print("z:fire x:jump \x94\x83:lift/stairs",4,122,5)
+ print("z:jump x:fire\x94\x83:lift/stairs",4,122,5)
 end
 
 function drworld()
@@ -463,6 +482,14 @@ function drworld()
  for s in all(shafts) do drcar(s) end
  for f=max(1,f0),f1 do drfront(f) end
  spr(101,carx,400,4,2)
+ if chute then
+  -- deflating canopy: sinks, flattens and spreads, drifting behind the agent
+  local k=chute.k
+  local x,h,w=chute.x-chute.d*k*.5,max(2,11-k/2.5),28+k*.5
+  local yb=min(32,k*k*.06)
+  if (k<16) line(x-w/2+1,yb-1,p.x-4,20,6) line(x+w/2-1,yb-1,p.x+3,20,6)
+  sspr(16,48,24,8,x-w/2,yb-h,w,h)
+ end
  for e in all(ens) do drent(e) end
  drent(p)
  for b in all(bul) do line(b.x,b.y,b.x-sgn(b.dx)*3,b.y,b.pl and 10 or 8) end
@@ -562,15 +589,22 @@ end
 function drent(e)
  if (hidden(e) or e.st=="dead" and e.dt>25 and t%4<2) return
  local f,y=0,e.y-e.jy
- if e.st=="dead" then f=7
+ if e.st=="dead" then
+  -- knocked back: tilted mid-fall with a small hop, then lying flat
+  local k,sx=e.dt,e.en and 24 or 0
+  if k<8 then sspr(sx,72,24,24,e.x-(e.dir<0 and 8 or 16),y-24-k*(8-k)/4,24,24,e.dir<0)
+  else sspr(sx,64,24,8,e.x-12,y-8,24,8,e.dir>0) end
+  return
  elseif e.cr then f=e.sht>0 and 5 or 4
  elseif e.jy>0 or e.st=="fall" or e.st=="para" then f=e.sht>0 and 14 or 6
  elseif e.sht>0 then f=3
  elseif e.mv then f=1+t\4%2 end
- if (e.en) f=f==7 and 12 or f==3 and 11 or f<3 and f+8 or 8
+ if (e.en) f=f==3 and 11 or f<3 and f+8 or 8
  if e.st=="para" then
-  spr(98,e.x-12,y-40,3,1)
-  line(e.x-11,y-33,e.x-4,y-20,6) line(e.x+11,y-33,e.x+3,y-20,6)
+  -- full canopy, breathing with the wind
+  local h=11+sin(t/24)*1.5
+  sspr(16,48,24,8,e.x-14,y-32-h,28,h)
+  line(e.x-13,y-33,e.x-4,y-20,6) line(e.x+13,y-33,e.x+3,y-20,6)
  end
  spr(f\8*48+f%8*2,e.x-8,y-24,2,3,e.dir<0)
 end

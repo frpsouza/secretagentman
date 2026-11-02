@@ -36,7 +36,7 @@ Jogo arcade para **PICO-8** feito a partir de [conceitos.md](conceitos.md) e da 
 | **Fim da fase** | Com todos os planos: "ALL PLANS! ESCAPE VIA LOBBY!". No térreo, a saída à direita (antes bloqueada) libera; o agente sai para a rua, entra na **caranga verde** e vai embora acelerando. "MISSION COMPLETE!" + bônus de 1000 × nível. |
 | **Progressão** | Cada missão seguinte aumenta a velocidade, o número máximo e a cadência de tiro dos inimigos. 3 vidas; game over volta para a tela inicial. |
 
-**Controles:** ⬅️➡️ andar · ⬇️ abaixar / descer escada / descer elevador · ⬆️ entrar na porta vermelha / subir escada / subir elevador · **Z (🅾️)** atirar · **X (❎)** pular. No menu de pausa (Enter) há a opção "music on/off".
+**Controles:** ⬅️➡️ andar · ⬇️ abaixar / descer escada / descer elevador · ⬆️ entrar na porta vermelha / subir escada / subir elevador · **Z (🅾️)** pular · **X (❎)** atirar · **I** liga/desliga o modo invencível (só no teclado). No menu de pausa (Enter) há a opção "music on/off".
 
 **Pontuação:** inimigo baleado 100 · inimigo esmagado/caído 300 · planos 500 · lustre 50 · bônus de missão 1000 × nível.
 
