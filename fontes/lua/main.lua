@@ -89,26 +89,32 @@ function _update()
   camfollow()
  elseif mode=="esc" then
   et+=1
-  if et<50 then
+  if not ta then
+   -- walk up to the driver's door
    p.x+=1 p.mv,p.dir=true,1
-  elseif et==50 then
-   p.st="gone" sfx(10)
-  elseif et>70 then
-   cv+=.08 carx+=cv
+   if (p.x>=carx+21) ta,p.mv=et,false
+  else
+   -- the door opens, the agent gets in, it shuts, engine, and away
+   ck=et-ta
+   cdo=ck<8 and ck/8 or ck<22 and 1 or ck<30 and (30-ck)/8 or 0
+   if (ck==1 or ck==24) sfx(12)
+   if (ck==14) p.st="gone"
+   if (ck==34) sfx(10)
+   if (ck>46) cv=min(cv+.08,2.5) carx+=cv
+   -- exhaust smoke: a puff on ignition, a thick trail while pulling away
+   if (ck>34 and ck<140 and (ck<90 or ck%3==0)) add(smk,{x=carx+1,y=411,r=1,l=24})
+   if (ck==170) addsc(100*lvl) sfx(11)
+   if ck>190 and (btnp(4) or btnp(5)) then
+    lvl+=1 setup()
+    if (mus) music(0)
+   end
   end
-  -- exhaust smoke: a puff on ignition, a thick trail while pulling away
-  if (et>50 and et<150 and (et<110 or et%3==0)) add(smk,{x=carx+1,y=413,r=1,l=24})
   for q in all(smk) do
    q.x-=.4 q.y-=.15 q.r+=.1 q.l-=1
    if (q.l<0) del(smk,q)
   end
-  if (et==200) addsc(100*lvl) sfx(11)
-  if et>220 and (btnp(4) or btnp(5)) then
-   lvl+=1 setup()
-   if (mus) music(0)
-  end
   mt-=1
-  camfollow(et>60 and carx+16)
+  camfollow(ck>40 and carx+20)
  elseif t>60 and (btnp(4) or btnp(5)) or t>300 then
   title()
  end
@@ -117,7 +123,9 @@ end
 function _draw()
  cls()
  palt(0,false) palt(14,true)
- if mode=="title" then drtitle() else drworld() hud() end
+ if mode=="title" then drtitle()
+ elseif mode=="esc" and carx>350 then drdrive() hud()
+ else drworld() hud() end
  -- invincible toggle notice, fades out in 1s
  if (it>0) cprint("invincible mode "..(inv and "on" or "off"),60,it>20 and 7 or it>12 and 6 or it>6 and 13 or 5)
 end

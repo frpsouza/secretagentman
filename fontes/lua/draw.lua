@@ -53,7 +53,7 @@ function drworld()
  for s in all(shafts) do drcar(s) end
  for f=max(1,f0),f1 do drfront(f) end
  for q in all(smk) do circfill(q.x,q.y,q.r,q.l>16 and 6 or q.l>8 and 13 or 5) end
- drcarv()
+ drcarv(carx,397)
  if chute then
   -- deflating canopy: sinks, flattens and spreads, drifting behind the agent
   local k=chute.k
@@ -137,14 +137,69 @@ function drfloor(f)
  end
 end
 
--- the mini: body sprite plus wheels whose tread marks turn as it rolls
-function drcarv()
- spr(101,carx,400,4,2)
- for wx in all{7,25} do
-  local x,a=carx+wx,carx/19
-  circfill(x,413,3,0) circfill(x,413,1,6)
-  for i=0,2 do pset(x+cos(a+i/3)*2.4,413+sin(a+i/3)*2.4,5) end
+-- the mini (40x20, about 3/4 of the agent's height): body sprite, the front
+-- door swinging open toward the viewer (cdo 0..1), and wheels whose tread
+-- marks turn as it rolls
+function drcarv(x,y)
+ sspr(72,48,40,20,x,y)
+ if cdo>0 then
+  local w=flr(9*(1-cdo))
+  rectfill(x+17,y+2,x+26,y+12,0)
+  rectfill(x+26-w,y+2,x+26,y+5,12) rectfill(x+26-w,y+6,x+26,y+12,3)
+  line(x+27,y+2,x+27+cdo*3,y+13,5)
  end
+ for wx in all{8,31} do
+  local c,a=x+wx,carx/25
+  circfill(c,y+15,4,0) circfill(c,y+15,1,6)
+  for i=0,2 do pset(c+cos(a+i/3)*3,y+15+sin(a+i/3)*3,5) end
+ end
+end
+
+-- the getaway: the mini drives through a city scrolling in layers. each
+-- mission gets its own time of day, and the blocks are built from a seeded
+-- hash so towers, neon signs, trees and window lights vary along the way
+function hsh(i) srand(i+lvl*999) return rnd() end
+
+function drdrive()
+ local d,n=carx-350,lvl%3
+ local sky,far,lit=({1,12,14})[n+1],({0,13,2})[n+1],({10,6,9})[n+1]
+ rectfill(0,8,127,127,sky)
+ if n==0 then
+  for i=0,24 do pset((i*53-d*.03)%128,10+i*29%50,7) end
+  circfill(100,26,6,7) circfill(103,24,5,1)
+ elseif n==2 then circfill(90,74,14,9) circfill(90,74,10,10) end
+ for i=flr(d*.2/14)-1,flr(d*.2/14)+10 do
+  local x,h=i*14-d*.2,24+hsh(i)*40
+  rectfill(x,96-h,x+13,96,far)
+ end
+ for i=flr(d*.5/26)-1,flr(d*.5/26)+6 do
+  local x,w,h=i*26-d*.5,16+hsh(i+500)*8,20+hsh(i+900)*50
+  local c=({4,5,13,2,3,15})[flr(hsh(i+1300)*6)+1]
+  rectfill(x,100-h,x+w,100,c)
+  for wy=104-h,96,6 do for wx=x+3,x+w-3,5 do
+   if (hsh(i*97+wy*7+wx%26)>(n==1 and .7 or .45)) rectfill(wx,wy,wx+1,wy+2,lit)
+  end end
+  -- a tower with a blinking light, or a neon sign
+  if hsh(i+1700)>.8 then
+   line(x+w/2,100-h,x+w/2,88-h,5) pset(x+w/2,87-h,t%30<15 and 8 or 2)
+  elseif hsh(i+2100)>.7 then
+   rectfill(x+2,106-h,x+w-2,109-h,({8,11,14,12})[(t\8+i)%4+1])
+  end
+ end
+ rectfill(0,100,127,103,6)
+ for i=flr(d/36)-1,flr(d/36)+5 do
+  local x=i*36-d
+  if hsh(i+3000)>.5 then
+   line(x,100,x,84,5) line(x,84,x+3,84,5) pset(x+3,85,n==0 and 10 or 6)
+  else
+   line(x,100,x,94,4) circfill(x,90,4,3) circfill(x-1,88,2,11)
+  end
+ end
+ rectfill(0,104,127,127,5)
+ for x=-(d%16),127,16 do line(x,115,x+7,115,10) end
+ for q in all(smk) do circfill(q.x-carx+40,q.y-305,q.r,q.l>16 and 6 or 13) end
+ drcarv(40,92+(t%8<4 and 0 or 1))
+ srand(t)
 end
 
 function drcar(s)
@@ -290,7 +345,7 @@ function hud()
  if (inv) print("inv",1,122,11)
  if (mt>0) cprint(mtx,112,mt%10<7 and 7 or 10)
  if (mode=="over") cprint("game over",60,8)
- if mode=="esc" and et>200 then
+ if mode=="esc" and ck>170 then
   cprint("mission complete!",44,10)
   cprint("bonus "..lvl*1000,56,7)
   if (t%30<20) cprint("press button",70,6)

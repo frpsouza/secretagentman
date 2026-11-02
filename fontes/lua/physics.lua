@@ -121,7 +121,7 @@ function upcar(s)
  if s.y%32==0 then
   local f,ov=s.y\32-1,s.v
   if man then
-   s.v=btn(2) and f>s.t and -2 or btn(3) and f<s.b and 2 or 0
+   s.v=btn(2) and f>s.t and -1.5 or btn(3) and f<s.b and 1.5 or 0
   elseif s.v==0 then
    -- the player standing near the shaft calls the car to their floor
    -- (not when its roof is already level with that floor: it can be ridden)
@@ -129,8 +129,8 @@ function upcar(s)
    s.w-=1
    if call or s.w<=0 then
     s.tg=call and p.f or s.t+flr(rnd(s.b-s.t+1))
-    -- a called car comes at double speed so the player isn't left waiting
-    s.v=(s.tg>f and 1 or s.tg<f and -1 or 0)*(call and 2 or 1)
+    -- a called car comes faster so the player isn't left waiting
+    s.v=(s.tg>f and 1 or s.tg<f and -1 or 0)*(call and 1.5 or 1)
     s.w=30
    end
   -- stop at the target, and always at the ends of the shaft: a car the player
@@ -141,5 +141,8 @@ function upcar(s)
   -- ding-dong when a car stops for the player (riding it, or at their floor)
   if (ov~=0 and s.v==0 and (man or p.st=="walk" and f==p.f and abs(p.x-s.x-12)<48)) sfx(25)
  end
- s.y+=s.v
+ -- speeds like 1.5 don't divide 32: snap onto the next floor when passing it
+ local ny,b=s.y+s.v,s.v>0 and (s.y\32+1)*32 or -((-s.y)\32+1)*32
+ if (s.v~=0 and (s.v>0 and ny>b or s.v<0 and ny<b)) ny=b
+ s.y=ny
 end

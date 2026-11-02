@@ -28,7 +28,7 @@ function setup()
  end
  p=newent(64,0)
  p.y,p.st,chute=-56,"para",nil
- cx,cy,spt,mt,carx=0,-48,300,0,296
+ cx,cy,spt,mt,carx,ta,ck,cdo=0,-48,300,0,296,nil,0,0
  msg("mission "..lvl..": find the plans!",120)
 end
 
