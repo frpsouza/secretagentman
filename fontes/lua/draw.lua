@@ -175,6 +175,15 @@ function drfront(f)
  end
 end
 
+-- 16x24 character with a 1px navy outline, so black and grey legs stay
+-- readable in front of grey walls, black shafts and dark doorways
+function ospr(n,x,y,w,h,fl)
+ for i=0,15 do pal(i,1) end
+ for d in all{{-1,0},{1,0},{0,-1},{0,1}} do spr(n,x+d[1],y+d[2],w,h,fl) end
+ pal() palt(0,false) palt(14,true)
+ spr(n,x,y,w,h,fl)
+end
+
 function drent(e)
  if (hidden(e) or e.st=="dead" and e.dt>60 and t%4<2) return
  local f,y=0,e.y-e.jy
@@ -189,7 +198,7 @@ function drent(e)
    local w=16+(24-h)\2
    ovalfill(e.x-w/2,y-2,e.x+w/2,y,8)
    sspr(0,e.en and 24 or 0,16,24,e.x-w/2,y-h,w,h,e.dir<0)
-  elseif k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
+  elseif k<0 then ospr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
   elseif k<8 then sspr(sx,72,24,24,e.x-(kf and 8 or 16),y-24-k*(8-k)/4,24,24,kf)
   else
    local r=min(7,(k-8)/3)
@@ -216,7 +225,7 @@ function drent(e)
   sspr(16,48,24,8,e.x-14,y-32-h,28,h)
   line(e.x-13,y-33,e.x-4,y-20,6) line(e.x+13,y-33,e.x+3,y-20,6)
  end
- spr(f\8*48+f%8*2,e.x-8,y-24,2,3,e.dir<0)
+ ospr(f\8*48+f%8*2,e.x-8,y-24,2,3,e.dir<0)
  -- muzzle flash
  if (s>=21) local gy=y-(e.cr and 4 or 14) circfill(e.x+e.dir*9,gy,1,10) pset(e.x+e.dir*9,gy,7)
 end
