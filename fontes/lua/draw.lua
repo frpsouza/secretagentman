@@ -182,7 +182,14 @@ function drent(e)
   -- shot: agonize, staggering and clutching the wound; then thrown back
   -- (tilted mid-fall with a small hop) and lying flat in a spreading pool
   local k,sx,kf=e.dt-e.ag,e.en and 24 or 0,e.kd>0
-  if k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
+  if e.why=="crush" then
+   -- squashed between the car roof and the shaft top (or flattened by the
+   -- car at the bottom): the body shrinks to the gap left and spreads out
+   local h=e.rd and mid(3,y-e.sh.t*32-4,24) or max(3,24-e.dt*3)
+   local w=16+(24-h)\2
+   ovalfill(e.x-w/2,y-2,e.x+w/2,y,8)
+   sspr(0,e.en and 24 or 0,16,24,e.x-w/2,y-h,w,h,e.dir<0)
+  elseif k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
   elseif k<8 then sspr(sx,72,24,24,e.x-(kf and 8 or 16),y-24-k*(8-k)/4,24,24,kf)
   else
    local r=min(7,(k-8)/3)

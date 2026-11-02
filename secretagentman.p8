@@ -182,10 +182,12 @@ function kill(e,why,b)
  -- bodies keep riding the lift they died on
  e.rd=e.st=="car" and 0 or e.st=="roof" and 32 or nil
  -- kd: the way the body is thrown; ag: frames spent agonizing before the fall
- e.kd,e.ag=b and sgn(b.dx) or -e.dir,why=="shot" and 18 or 0
+ e.kd,e.ag,e.why=b and sgn(b.dx) or -e.dir,why=="shot" and 18 or 0,why
  if b then
   for i=1,12 do add(gore,{x=e.x,y=b.y,fy=e.y,vx=e.kd*rnd(1.8)+rnd(.6)-.3,vy=-rnd(1.6),l=30+rnd(20)}) end
  end
+ -- crushed: blood squirts out to both sides
+ if (why=="crush") for i=1,14 do add(gore,{x=e.x,y=e.y-3,fy=e.y,vx=rnd(4)-2,vy=-rnd(.8),l=40+rnd(20)}) end
  e.st,e.dt,e.jy,e.cr,e.sht="dead",0,0,false,0
  if e==p then
   sfx(why=="crush" and 9 or 3)
@@ -224,8 +226,7 @@ function act(e,mx,u,d)
     local ff=feet(e.f)
     e.sh=s
     if s.y==ff then e.st="car"
-    -- a roof sliding past is not boarded (it would crush the player up top)
-    elseif s.y-32==ff and (s.v==0 or e~=p) then e.st="roof"
+    elseif s.y-32==ff then e.st="roof"
     elseif e.f<s.b then e.st,e.vy,e.fy="fall",0,e.y
     elseif s.y>e.y-hgt(e) then kill(e,"crush") end
    end
@@ -266,7 +267,8 @@ function upcar(s)
    s.v=btn(2) and f>s.t and -2 or btn(3) and f<s.b and 2 or 0
   elseif s.v==0 then
    -- the player standing near the shaft calls the car to their floor
-   local call=p.st=="walk" and p.f>=s.t and p.f<=s.b and abs(p.x-s.x-12)<48
+   -- (not when its roof is already level with that floor: it can be ridden)
+   local call=p.st=="walk" and p.f>=s.t and p.f<=s.b and abs(p.x-s.x-12)<48 and s.y-32~=feet(p.f)
    s.w-=1
    if call or s.w<=0 then
     s.tg=call and p.f or s.t+flr(rnd(s.b-s.t+1))
@@ -274,7 +276,9 @@ function upcar(s)
     s.v=(s.tg>f and 1 or s.tg<f and -1 or 0)*(call and 2 or 1)
     s.w=30
    end
-  elseif f==s.tg then
+  -- stop at the target, and always at the ends of the shaft: a car the player
+  -- left while it was moving keeps an old target behind it and used to fly off
+  elseif f==s.tg or f<=s.t and s.v<0 or f>=s.b and s.v>0 then
    s.v,s.w=0,40+rnd(80)
   end
   if (ov~=0 and s.v==0) sfx(6)
@@ -652,7 +656,14 @@ function drent(e)
   -- shot: agonize, staggering and clutching the wound; then thrown back
   -- (tilted mid-fall with a small hop) and lying flat in a spreading pool
   local k,sx,kf=e.dt-e.ag,e.en and 24 or 0,e.kd>0
-  if k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
+  if e.why=="crush" then
+   -- squashed between the car roof and the shaft top (or flattened by the
+   -- car at the bottom): the body shrinks to the gap left and spreads out
+   local h=e.rd and mid(3,y-e.sh.t*32-4,24) or max(3,24-e.dt*3)
+   local w=16+(24-h)\2
+   ovalfill(e.x-w/2,y-2,e.x+w/2,y,8)
+   sspr(0,e.en and 24 or 0,16,24,e.x-w/2,y-h,w,h,e.dir<0)
+  elseif k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
   elseif k<8 then sspr(sx,72,24,24,e.x-(kf and 8 or 16),y-24-k*(8-k)/4,24,24,kf)
   else
    local r=min(7,(k-8)/3)
