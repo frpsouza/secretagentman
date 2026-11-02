@@ -65,6 +65,7 @@ function drworld()
  for e in all(ens) do drent(e) end
  drent(p)
  for b in all(bul) do line(b.x,b.y,b.x-sgn(b.dx)*3,b.y,b.pl and 10 or 8) end
+ for q in all(gore) do pset(q.x,q.y,q.l>12 and 8 or 2) end
  camera()
  darken()
  camera(x0,y0-8)
@@ -175,13 +176,19 @@ function drfront(f)
 end
 
 function drent(e)
- if (hidden(e) or e.st=="dead" and e.dt>25 and t%4<2) return
+ if (hidden(e) or e.st=="dead" and e.dt>60 and t%4<2) return
  local f,y=0,e.y-e.jy
  if e.st=="dead" then
-  -- knocked back: tilted mid-fall with a small hop, then lying flat
-  local k,sx=e.dt,e.en and 24 or 0
-  if k<8 then sspr(sx,72,24,24,e.x-(e.dir<0 and 8 or 16),y-24-k*(8-k)/4,24,24,e.dir<0)
-  else sspr(sx,64,24,8,e.x-12,y-8,24,8,e.dir>0) end
+  -- shot: agonize, staggering and clutching the wound; then thrown back
+  -- (tilted mid-fall with a small hop) and lying flat in a spreading pool
+  local k,sx,kf=e.dt-e.ag,e.en and 24 or 0,e.kd>0
+  if k<0 then spr(e.en and 156 or 154,e.x-8+(k%6<3 and 0 or e.kd),y-24,2,3,e.dir<0)
+  elseif k<8 then sspr(sx,72,24,24,e.x-(kf and 8 or 16),y-24-k*(8-k)/4,24,24,kf)
+  else
+   local r=min(7,(k-8)/3)
+   if (e.ag>0 and not e.rd) ovalfill(e.x-r-3,y-2,e.x+r+3,y+1,2) ovalfill(e.x-r,y-1,e.x+r,y,8)
+   sspr(sx,64,24,8,e.x-12,y-8,24,8,not kf)
+  end
   return
  end
  local s,w=e.sht,t\3%6

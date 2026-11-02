@@ -23,10 +23,15 @@ function hit(e,b)
  return e.st~="dead" and not hidden(e) and abs(b.x-e.x)<5 and b.y<=y and b.y>=y-hgt(e)
 end
 
-function kill(e,why)
+function kill(e,why,b)
  if (e.st=="dead" or e==p and inv) return
  -- bodies keep riding the lift they died on
  e.rd=e.st=="car" and 0 or e.st=="roof" and 32 or nil
+ -- kd: the way the body is thrown; ag: frames spent agonizing before the fall
+ e.kd,e.ag=b and sgn(b.dx) or -e.dir,why=="shot" and 18 or 0
+ if b then
+  for i=1,12 do add(gore,{x=e.x,y=b.y,fy=e.y,vx=e.kd*rnd(1.8)+rnd(.6)-.3,vy=-rnd(1.6),l=30+rnd(20)}) end
+ end
  e.st,e.dt,e.jy,e.cr,e.sht="dead",0,0,false,0
  if e==p then
   sfx(why=="crush" and 9 or 3)
@@ -40,7 +45,7 @@ end
 -- dead bodies: fly back while falling, keep riding the lift they died on
 function knock(e)
  if e.rd then e.y=e.sh.y-e.rd
- elseif e.dt<8 then e.x=mid(12,e.x-e.dir*.75,248) end
+ elseif e.dt<e.ag+8 then e.x=mid(12,e.x+e.kd*(e.dt<e.ag and .15 or .75),248) end
 end
 
 function land(e,y,st)
@@ -57,17 +62,16 @@ function act(e,mx,u,d)
   local c,k,ed=findesc(e,u,d)
   if c then e.st,e.es,e.k,e.ed="esc",c,k,ed return end
   -- faster in the air so a jump clears a shaft (24px)
-  local ox=e.x
   e.x=mid(12,e.x+mx*e.spd*(e.jy>0 and 2 or 1),e.xr or 244)
   if e.jy==0 then
    s=shaft(e.x,e.f)
    if s then
-    local ff,ok=feet(e.f),s.v==0 or e~=p
+    -- lift doors are always open: no car on this floor means a fall
+    local ff=feet(e.f)
     e.sh=s
-    if s.y==ff and ok then e.st="car"
-    elseif s.y-32==ff and ok then e.st="roof"
-    -- the player waits at the lift door for the car to stop; only jumps fall in
-    elseif e==p and not shaft(ox,e.f) then e.x=ox
+    if s.y==ff then e.st="car"
+    -- a roof sliding past is not boarded (it would crush the player up top)
+    elseif s.y-32==ff and (s.v==0 or e~=p) then e.st="roof"
     elseif e.f<s.b then e.st,e.vy,e.fy="fall",0,e.y
     elseif s.y>e.y-hgt(e) then kill(e,"crush") end
    end

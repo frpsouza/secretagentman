@@ -7,7 +7,7 @@ end
 
 function setup()
  mode,t="play",0
- shafts,escs,doors,lamps,lit,ens,bul,pops,smk={},{},{},{},{[0]=true},{},{},{},{}
+ shafts,escs,doors,lamps,lit,ens,bul,pops,smk,gore={},{},{},{},{[0]=true},{},{},{},{},{}
  for d in all{{96,1,5},{24,3,8},{192,5,10},{112,8,12}} do
   add(shafts,{x=d[1],t=d[2],b=d[3],y=feet(d[2]+flr(rnd(d[3]-d[2]+1))),v=0,w=30})
  end

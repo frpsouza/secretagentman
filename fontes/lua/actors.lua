@@ -94,7 +94,7 @@ function upenemy(e)
  if e.st=="dead" then
   e.dt+=1
   knock(e)
-  if (e.dt>45) del(ens,e)
+  if (e.dt>80) del(ens,e)
   return
  end
  if e.st=="out" then
@@ -152,10 +152,10 @@ function upbul()
     end
    end
    for e in all(ens) do
-    if (hit(e,b)) kill(e,"shot") del(bul,b)
+    if (hit(e,b)) kill(e,"shot",b) del(bul,b)
    end
   elseif hit(p,b) then
-   kill(p,"shot") del(bul,b)
+   kill(p,"shot",b) del(bul,b)
   end
  end
 end

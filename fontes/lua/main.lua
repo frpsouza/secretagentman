@@ -64,6 +64,12 @@ function _update()
   for e in all(ens) do upenemy(e) end
   upbul()
   spawn()
+  -- blood spray: falls and stains the floor for a moment
+  for q in all(gore) do
+   q.vy+=.15 q.x+=q.vx q.y+=q.vy q.l-=1
+   if (q.y>=q.fy) q.y,q.vx,q.vy=q.fy,0,0
+   if (q.l<0) del(gore,q)
+  end
   for q in all(pops) do
    q.y-=.5 q.t-=1
    if (q.t<0) del(pops,q)

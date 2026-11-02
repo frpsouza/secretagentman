@@ -87,14 +87,15 @@ BASS_BA = ("b0 . b0 . d1 . b0 . e1 . b0 . f1 . e1 . "
            "a0 . a0 . c1 . a0 . d1 . a0 . eb1 . d1 .")
 BEAT = "K . H . S . H . K . K H S . H H " * 2
 FILL = "K . H . S . H . K . K H S . H H K . H . S . S . S S S S S S S S"
-LEAD_A = ("e2 - - g2 a2 - bb2 a2 g2 - e2 - d2 e2 - - "
-          "e2 - - g2 a2 - b2 - d3 - b2 a2 g2 - e2 -")
-LEAD_B = ("b2 b2 b2 b2 a2 a2 a2 a2 g2 g2 g2 g2 e2 e2 e2 e2 "
-          "g2 g2 g2 g2 a2 a2 b2 b2 e3 e3 e3 e3 e3 e3 e3 .")
-LEAD_C = ("a2 - c3 - d3 - eb3 d3 c3 - a2 - g2 a2 - - "
-          "a2 - c3 - d3 - e3 - g3 - e3 d3 c3 - a2 -")
-LEAD_D = ("b2 - - - b2 a2 - - a2 g2 - - e2 g2 a2 bb2 "
-          "b2 - e3 - - - - - e2 - - - - - . .")
+# lead: a falling call from the high e, answered by a bluesy climb that bends bb up to b
+LEAD_A = ("e3 - - . d3 e3 . b2 - - - . a2 - g2 . "
+          "e2 - . g2 - . a2 . bb2 - b2 - - - . .")
+LEAD_B = ("e3 e3 e3 e3 d3 d3 d3 d3 b2 b2 b2 b2 a2 a2 b2 b2 "
+          "d3 d3 d3 d3 b2 b2 a2 a2 g2 g2 e2 e2 e2 e2 . .")
+LEAD_C = ("a3 - - . g3 a3 . e3 - - - . d3 - c3 . "
+          "a2 - . c3 - . d3 . eb3 - e3 - - - . .")
+LEAD_D = ("f#3 - - - a3 - f#3 - d#3 - - - b2 - - . "
+          "c3 - - - e3 - c3 - a2 - b2 - e3 - - .")
 
 SFX.update({
     16: (seq(BASS_E, 1, 5), SPEED),

@@ -4,7 +4,8 @@
   fontes/sprites/*.txt      sprite sheet (ASCII pixel art)
   fontes/audio/audio.py     sound effects and music
 
-Also writes fontes/sprites/spritesheet.png (4x preview of the sheet).
+Also writes fontes/sprites/spritesheet.png (4x preview of the sheet)
+and fontes/audio/midi/*.mid (music previews, see tools/midi.py).
 Usage: python tools/build.py
 """
 import glob
@@ -19,6 +20,9 @@ SRC = os.path.join(ROOT, "fontes")
 OUT = os.path.join(ROOT, "secretagentman.p8")
 sys.path.insert(0, os.path.join(SRC, "audio"))
 import audio  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import midi  # noqa: E402
 
 MODULES = ["main", "level", "physics", "actors", "draw"]
 
@@ -124,6 +128,7 @@ def main():
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out) + "\n\n")
     print("wrote", OUT)
+    print("midi previews in", midi.export(audio, os.path.join(SRC, "audio", "midi")))
 
 
 if __name__ == "__main__":

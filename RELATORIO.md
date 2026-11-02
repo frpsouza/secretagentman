@@ -70,8 +70,10 @@ fontes/
   sprites/items.txt        vida, pasta, paraquedas, carro
   sprites/spritesheet.png  prévia da sprite sheet (gerada a cada build)
   audio/audio.py           efeitos sonoros e música (notas em texto)
+  audio/midi/              prévia da música em MIDI (theme.mid completo + bass/drums/lead), gerada a cada build
   label.txt                imagem do label do cartucho
 tools/build.py             monta o .p8 a partir de fontes/
+tools/midi.py              converte a música do PICO-8 em MIDI (chamado pelo build)
 docs/screenshots/          capturas
 ```
 
