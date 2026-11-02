@@ -253,14 +253,15 @@ function upcar(s)
  if s.y%32==0 then
   local f,ov=s.y\32-1,s.v
   if man then
-   s.v=btn(2) and f>s.t and -1 or btn(3) and f<s.b and 1 or 0
+   s.v=btn(2) and f>s.t and -2 or btn(3) and f<s.b and 2 or 0
   elseif s.v==0 then
    -- the player standing near the shaft calls the car to their floor
    local call=p.st=="walk" and p.f>=s.t and p.f<=s.b and abs(p.x-s.x-12)<48
    s.w-=1
    if call or s.w<=0 then
     s.tg=call and p.f or s.t+flr(rnd(s.b-s.t+1))
-    s.v=s.tg>f and 1 or s.tg<f and -1 or 0
+    -- a called car comes at double speed so the player isn't left waiting
+    s.v=(s.tg>f and 1 or s.tg<f and -1 or 0)*(call and 2 or 1)
     s.w=30
    end
   elseif f==s.tg then
@@ -320,6 +321,11 @@ function upplayer()
  end
  local mx,u,d=(btn(1) and 1 or 0)-(btn(0) and 1 or 0),btn(2),btn(3)
  e.cr=false
+ -- up/down at the lift door also boards a car waiting on this floor
+ if e.st=="walk" and e.jy==0 and (btnp(2) or btnp(3)) then
+  local s=shaft(e.x+e.dir*4,e.f)
+  if (s and s.y==feet(e.f) and s.v==0) e.st,e.sh,e.x="car",s,s.x+12 return
+ end
  if e.st=="walk" and e.jy==0 then
   if (d and not findesc(e,false,true)) e.cr,mx=true,0
   if btnp(2) and not findesc(e,true,false) then
@@ -618,6 +624,12 @@ function drfront(f)
    rectfill(s.x-1,y+4,s.x+24,y+8,5)
    rectfill(s.x+7,y+4,s.x+16,y+8,on and 8 or 0)
    print(nf-f+1,s.x+(f<4 and 8 or 10),y+4,on and 7 or 9)
+   -- blinking arrow while a car is on its way to this floor
+   if s.v~=0 and s.tg==f and t%16<10 then
+    -- on the side of the panel away from the player standing at the door
+    local d,ax=sgn(s.y-feet(f)),p.x<s.x+12 and s.x+20 or s.x+3
+    for i=0,2 do line(ax-i,y+6-d*(1-i),ax+i,y+6-d*(1-i),10) end
+   end
   end
  end
 end

@@ -164,6 +164,12 @@ function drfront(f)
    rectfill(s.x-1,y+4,s.x+24,y+8,5)
    rectfill(s.x+7,y+4,s.x+16,y+8,on and 8 or 0)
    print(nf-f+1,s.x+(f<4 and 8 or 10),y+4,on and 7 or 9)
+   -- blinking arrow while a car is on its way to this floor
+   if s.v~=0 and s.tg==f and t%16<10 then
+    -- on the side of the panel away from the player standing at the door
+    local d,ax=sgn(s.y-feet(f)),p.x<s.x+12 and s.x+20 or s.x+3
+    for i=0,2 do line(ax-i,y+6-d*(1-i),ax+i,y+6-d*(1-i),10) end
+   end
   end
  end
 end

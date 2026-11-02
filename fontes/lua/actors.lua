@@ -47,6 +47,11 @@ function upplayer()
  end
  local mx,u,d=(btn(1) and 1 or 0)-(btn(0) and 1 or 0),btn(2),btn(3)
  e.cr=false
+ -- up/down at the lift door also boards a car waiting on this floor
+ if e.st=="walk" and e.jy==0 and (btnp(2) or btnp(3)) then
+  local s=shaft(e.x+e.dir*4,e.f)
+  if (s and s.y==feet(e.f) and s.v==0) e.st,e.sh,e.x="car",s,s.x+12 return
+ end
  if e.st=="walk" and e.jy==0 then
   if (d and not findesc(e,false,true)) e.cr,mx=true,0
   if btnp(2) and not findesc(e,true,false) then
