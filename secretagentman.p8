@@ -593,9 +593,10 @@ function drfloor(f)
   return
  end
  rectfill(0,y,255,y+3,6) line(0,y+3,255,y+3,5)
- rectfill(8,y+4,247,y+31,12)
- line(8,y+25,247,y+25,13)
- for x=32,224,48 do line(x,y+4,x,y+24,13) end
+ -- walls in a lavender grey with darker trim, so only the sky is light blue
+ rectfill(8,y+4,247,y+31,13)
+ line(8,y+25,247,y+25,5)
+ for x=32,224,48 do line(x,y+4,x,y+24,5) end
  rectfill(0,y+4,7,y+31,5) rectfill(248,y+4,255,y+31,5)
  print(nf-f+1,1,y+14,6)
  if f==nf then
@@ -623,7 +624,7 @@ function drfloor(f)
  for d in all(doors) do
   if d.f==f then
    local x,fy=d.x,y+32
-   rectfill(x-1,fy-23,x+12,fy-1,d.red and 2 or 13)
+   rectfill(x-1,fy-23,x+12,fy-1,d.red and 2 or 5)
    rectfill(x,fy-22,x+11,fy-1,0)
    local w=flr(12*(1-d.o))
    if w>0 then
@@ -684,8 +685,10 @@ function drdrive()
   local x,w,h=i*26-d*.5,16+hsh(i+500)*8,20+hsh(i+900)*50
   local c=({4,5,13,2,3,15})[flr(hsh(i+1300)*6)+1]
   rectfill(x,100-h,x+w,100,c)
-  for wy=104-h,96,6 do for wx=x+3,x+w-3,5 do
-   if (hsh(i*97+wy*7+wx%26)>(n==1 and .7 or .45)) rectfill(wx,wy,wx+1,wy+2,lit)
+  -- each window keyed by its row/column in the building, so it stays lit
+  -- (or dark) while the street scrolls
+  for r=0,(h-8)\6 do for c=0,(w-6)\5 do
+   if (hsh(i*97+r*13+c)>(n==1 and .7 or .45)) rectfill(x+3+c*5,104-h+r*6,x+4+c*5,106-h+r*6,lit)
   end end
   -- a tower with a blinking light, or a neon sign
   if hsh(i+1700)>.8 then
