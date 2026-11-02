@@ -211,7 +211,7 @@ function drent(e)
   if e.why=="crush" then
    -- squashed between the car roof and the shaft top (or flattened by the
    -- car at the bottom): the body shrinks to the gap left and spreads out
-   local h=e.rd and mid(3,y-e.sh.t*32-4,24) or max(3,24-e.dt*3)
+   local h=max(3,min(24-e.dt*3,e.rd and y-e.sh.t*32-4 or 24))
    local w=16+(24-h)\2
    ovalfill(e.x-w/2,y-2,e.x+w/2,y,8)
    sspr(0,e.en and 24 or 0,16,24,e.x-w/2,y-h,w,h,e.dir<0)
@@ -287,6 +287,7 @@ function hud()
  print("hi "..sc(hi),30,1,9)
  spr(97,70,0) print(got.."/"..plans,79,1,10)
  for i=1,lives do spr(96,128-i*9,0) end
+ if (inv) print("inv",1,122,11)
  if (mt>0) cprint(mtx,112,mt%10<7 and 7 or 10)
  if (mode=="over") cprint("game over",60,8)
  if mode=="esc" and et>200 then

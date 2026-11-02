@@ -41,7 +41,8 @@ Jogo arcade para **PICO-8** feito a partir de [conceitos.md](conceitos.md) e da 
 **Pontuação:** inimigo baleado 100 · inimigo esmagado/caído 300 · planos 500 · lustre 50 · bônus de missão 1000 × nível.
 
 ### Música e sons
-- **Tema original** no estilo surf/espionagem dos anos 60: baixo em ostinato de blues em Mi (com a 5ª diminuta, típico do gênero), bateria surf (bumbo, caixa, chimbal) e guitarra solo em onda *pulse* com vibrato, além de um trecho de *tremolo picking* de surf. Estrutura: intro → tema → break de tremolo → IV grau → tema → turnaround com virada de caixa, em loop. Usa 3 canais; o 4º fica livre para os efeitos. A composição é original (não copia as melodias de Secret Agent Man, Peter Gunn nem do tema de Bond).
+- **Efeitos:** tiros, mortes, pulo e aterrissagem, pouso de paraquedas, assobio de queda no fosso e baque ao cair, "plim-plom" quando o elevador para no andar do jogador (ou com ele dentro), portas, lustres, carro.
+- **Tema original** no estilo surf/espionagem dos anos 60: baixo em ostinato de blues em Mi (com a 5ª diminuta, típico do gênero), bateria surf (bumbo, caixa, chimbal) e guitarra solo em onda *pulse* com vibrato, além de um trecho de *tremolo picking* de surf. Estrutura: intro com o riff → **blues de 12 compassos** em loop (Mi Mi Mi Mi | Lá Lá Mi Mi | Si Lá Mi Si), com o riff de um compasso do baixo transposto para cada acorde, a melodia acompanhando os acordes e virada de caixa no turnaround. Usa 3 canais; o 4º fica livre para os efeitos. A composição é original (não copia as melodias de Secret Agent Man, Peter Gunn nem do tema de Bond).
 - 14 efeitos: tiro do jogador/inimigo, inimigo abatido, morte, coleta de planos, vidro do lustre, "ding" do elevador, pulo, start, esmagamento, motor do carro, jingle de missão, porta e game over.
 
 ### Arte (adaptação do concept para o PICO-8)

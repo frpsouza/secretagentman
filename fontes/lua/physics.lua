@@ -52,7 +52,9 @@ end
 
 function land(e,y,st)
  e.y,e.st=y,st
- if (y-e.fy>40) kill(e,"fall")
+ -- a long fall onto a car coming up is a crush, not a fall
+ if y-e.fy>40 then kill(e,st=="roof" and e.sh.v<0 and "crush" or "fall")
+ elseif e==p then sfx(26) end
 end
 
 -- shared movement rules (player and enemies)
@@ -75,7 +77,12 @@ function act(e,mx,u,d)
     -- frame would walk straight back out and the player looked stuck)
     if s.y==ff then e.st,e.x="car",mid(s.x+5,e.x,s.x+18)
     elseif s.y-32==ff then e.st,e.x="roof",mid(s.x+5,e.x,s.x+18)
-    elseif e.f<s.b then e.st,e.vy,e.fy="fall",0,e.y
+    -- stepping in while the car is passing this floor: caught between the
+    -- floor and the car
+    elseif s.y-32<ff and s.y>ff-23 then kill(e,"crush")
+    elseif e.f<s.b then
+     e.st,e.vy,e.fy="fall",0,e.y
+     if (e==p) sfx(15)
     elseif s.y>e.y-hgt(e) then kill(e,"crush") end
    end
   end
@@ -90,7 +97,9 @@ function act(e,mx,u,d)
   e.vy=min(e.vy+.3,4)
   e.y+=e.vy
   local ry,by=s.y-32,feet(s.b)
-  if e.y>=ry and e.y-e.vy<=ry+1 then land(e,ry,"roof")
+  -- compare with where the roof was last frame: a rising car and a falling
+  -- body close in by up to 6px a frame
+  if e.y>=ry and e.y-e.vy<=ry-s.v+1 then land(e,ry,"roof")
   elseif e.y>=by then e.f=s.b land(e,by,"walk") end
  elseif st=="car" or st=="roof" then
   local rf=st=="roof"
@@ -129,7 +138,8 @@ function upcar(s)
   elseif f==s.tg or f<=s.t and s.v<0 or f>=s.b and s.v>0 then
    s.v,s.w=0,40+rnd(80)
   end
-  if (ov~=0 and s.v==0) sfx(6)
+  -- ding-dong when a car stops for the player (riding it, or at their floor)
+  if (ov~=0 and s.v==0 and (man or p.st=="walk" and f==p.f and abs(p.x-s.x-12)<48)) sfx(25)
  end
  s.y+=s.v
 end

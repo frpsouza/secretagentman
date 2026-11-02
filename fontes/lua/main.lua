@@ -14,7 +14,18 @@ function _init()
  mus,inv,it=true,false,0
  poke(0x5f2d,1) -- keyboard: i toggles invincible mode
  menuitem(1,"music on/off",function() mus=not mus music(mus and 0 or -1) end)
+ invmenu()
  title()
+end
+
+-- invincibility for testing: pause menu (enter / the menu button on phones)
+-- or the i key; the menu label shows the current state
+function invmenu()
+ menuitem(2,"invincible: "..(inv and "on" or "off"),function()
+  inv,it=not inv,30
+  invmenu()
+  return true
+ end)
 end
 
 function title()
@@ -45,7 +56,7 @@ function _update()
  t+=1
  it-=1
  while stat(30) do
-  if (stat(31)=="i") inv,it=not inv,30
+  if (stat(31)=="i") inv,it=not inv,30 invmenu()
  end
  if mode=="title" then
   if stt>0 then

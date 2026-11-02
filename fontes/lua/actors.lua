@@ -26,7 +26,7 @@ function upplayer()
  if e.st=="para" then
   e.y+=.6
   -- the canopy is left behind to collapse on the roof
-  if (e.y>=32) e.y,e.st,chute=32,"walk",{x=e.x,d=e.dir,k=0}
+  if (e.y>=32) e.y,e.st,chute=32,"walk",{x=e.x,d=e.dir,k=0} sfx(13)
   return
  end
  if e.st=="door" then
@@ -69,7 +69,7 @@ function upplayer()
  act(e,mx,u,d)
  if e.jv~=0 or e.jy>0 then
   e.jy+=e.jv e.jv-=.3
-  if (e.jy<=0) e.jy,e.jv=0,0
+  if (e.jy<=0) e.jy,e.jv=0,0 sfx(27)
  end
  if e.st=="walk" then
   if (e.jy==0 and not shaft(e.x,e.f)) e.sx,e.sf=e.x,e.f
