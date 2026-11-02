@@ -175,15 +175,29 @@ function drfront(f)
  end
 end
 
--- 16x24 character with a 1px navy outline below the head (the hair already
--- stands out), so black and grey legs stay readable in front of grey walls,
--- black shafts and dark doorways
+-- 16x24 character with an adaptive rim: only where a dark part of the
+-- character (suit, legs, hat) touches a dark background (grey walls, black
+-- shafts, dark doorways) is that edge pixel lit, so it never outlines
+-- the figure against the bright walls and sky.
+-- the edge pixels of each frame are worked out once and cached in oc
+oc={}
 function ospr(n,x,y,w,h,fl)
- -- clip works in screen space, so take the camera offset off
- clip(x-1-%0x5f28,y+9-%0x5f2a,18,16)
- for i=0,15 do pal(i,1) end
- for d in all{{-1,0},{1,0},{0,-1},{0,1}} do spr(n,x+d[1],y+d[2],w,h,fl) end
- pal() palt(0,false) palt(14,true) clip()
+ local k,sx,sy=n*2+(fl and 1 or 0),n%16*8,n\16*8
+ local function px(c,r)
+  if (c<0 or c>15 or r<0 or r>23) return 14
+  return sget(sx+(fl and 15-c or c),sy+r)
+ end
+ local function dk(c,r) local v=px(c,r) return v==0 or v==5 end
+ if not oc[k] then
+  oc[k]={}
+  for r=-1,24 do for c=-1,16 do
+   if (px(c,r)==14 and (dk(c-1,r) or dk(c+1,r) or dk(c,r-1) or dk(c,r+1))) add(oc[k],{c,r})
+  end end
+ end
+ for q in all(oc[k]) do
+  local b=pget(x+q[1],y+q[2])
+  if (b<3 or b==5) pset(x+q[1],y+q[2],13)
+ end
  spr(n,x,y,w,h,fl)
 end
 
@@ -232,8 +246,9 @@ function drent(e)
  drgun(e,f,y,s)
 end
 
--- a revolver bigger than the sprite has room for: wooden grip in the hand,
--- dark cylinder, light barrel; the muzzle flash comes out of its tip
+-- a black pistol with a long barrel, bigger than the sprite has room for.
+-- like the character rim, a pixel over a dark background is drawn light grey
+-- so the gun never vanishes; the muzzle flash comes out of its tip
 function drgun(e,f,y,s)
  local hr,hc
  if f==5 then hr,hc=20,14
@@ -242,10 +257,15 @@ function drgun(e,f,y,s)
  else return end
  local d=e.dir
  local hx,hy=e.x-8+(d>0 and hc or 15-hc),y-24+hr
- pset(hx,hy+1,4) pset(hx+d,hy+1,4)
- rectfill(hx+d,hy-1,hx+2*d,hy,5)
- line(hx+3*d,hy-1,hx+6*d,hy-1,6)
- if (s>=21) circfill(hx+8*d,hy-1,1,10) pset(hx+8*d,hy-1,7)
+ local function g(i,j)
+  local x,y=hx+i*d,hy+j
+  local b=pget(x,y)
+  pset(x,y,(b<3 or b==5) and 6 or 0)
+ end
+ -- grip, frame and trigger guard, then the slide and long barrel
+ g(0,1) g(1,1) g(1,0) g(2,0) g(3,0)
+ for i=1,9 do g(i,-1) end
+ if (s>=21) circfill(hx+11*d,hy-1,1,10) pset(hx+11*d,hy-1,7)
 end
 
 -- lights out: remap screen rows of dark floors
