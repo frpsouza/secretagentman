@@ -175,12 +175,15 @@ function drfront(f)
  end
 end
 
--- 16x24 character with a 1px navy outline, so black and grey legs stay
--- readable in front of grey walls, black shafts and dark doorways
+-- 16x24 character with a 1px navy outline below the head (the hair already
+-- stands out), so black and grey legs stay readable in front of grey walls,
+-- black shafts and dark doorways
 function ospr(n,x,y,w,h,fl)
+ -- clip works in screen space, so take the camera offset off
+ clip(x-1-%0x5f28,y+9-%0x5f2a,18,16)
  for i=0,15 do pal(i,1) end
  for d in all{{-1,0},{1,0},{0,-1},{0,1}} do spr(n,x+d[1],y+d[2],w,h,fl) end
- pal() palt(0,false) palt(14,true)
+ pal() palt(0,false) palt(14,true) clip()
  spr(n,x,y,w,h,fl)
 end
 
@@ -226,8 +229,23 @@ function drent(e)
   line(e.x-13,y-33,e.x-4,y-20,6) line(e.x+13,y-33,e.x+3,y-20,6)
  end
  ospr(f\8*48+f%8*2,e.x-8,y-24,2,3,e.dir<0)
- -- muzzle flash
- if (s>=21) local gy=y-(e.cr and 4 or 14) circfill(e.x+e.dir*9,gy,1,10) pset(e.x+e.dir*9,gy,7)
+ drgun(e,f,y,s)
+end
+
+-- a revolver bigger than the sprite has room for: wooden grip in the hand,
+-- dark cylinder, light barrel; the muzzle flash comes out of its tip
+function drgun(e,f,y,s)
+ local hr,hc
+ if f==5 then hr,hc=20,14
+ elseif f==27 or f==28 then hr,hc=12,13
+ elseif f==3 or f==11 or f==14 then hr,hc=10,14
+ else return end
+ local d=e.dir
+ local hx,hy=e.x-8+(d>0 and hc or 15-hc),y-24+hr
+ pset(hx,hy+1,4) pset(hx+d,hy+1,4)
+ rectfill(hx+d,hy-1,hx+2*d,hy,5)
+ line(hx+3*d,hy-1,hx+6*d,hy-1,6)
+ if (s>=21) circfill(hx+8*d,hy-1,1,10) pset(hx+8*d,hy-1,7)
 end
 
 -- lights out: remap screen rows of dark floors

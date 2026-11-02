@@ -1,7 +1,7 @@
 -- actors: player, enemies, bullets, spawning, camera
 
 function fire(e,pl)
- add(bul,{x=e.x+e.dir*7,y=e.y-e.jy-(e.cr and 4 or 14),dx=e.dir*(pl and 3 or 2),pl=pl,l=60})
+ add(bul,{x=e.x+e.dir*13,y=e.y-e.jy-(e.cr and 5 or 15),dx=e.dir*(pl and 3 or 2),pl=pl,l=60})
  e.sht=24
  sfx(pl and 0 or 1)
 end
