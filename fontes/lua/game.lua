@@ -153,8 +153,9 @@ function act(e,mx,u,d)
   local rf=st=="roof"
   e.y=s.y-(rf and 32 or 0)
   local nx=e.x+mx*e.spd
-  if s.y%32==0 and e.y>s.t*32 and (nx<s.x+3 or nx>s.x+20) then
-   e.st,e.f="walk",flo(e.y)
+  if s.y%32==0 and e.y>s.t*32 and (nx<s.x+5 or nx>s.x+18) then
+   -- step clear of the shaft so walk doesn't re-board
+   e.st,e.f,nx="walk",flo(e.y),nx<s.x+5 and s.x+1 or s.x+22
   else
    nx=mid(s.x+5,nx,s.x+18)
   end
@@ -423,13 +424,18 @@ function drtitle()
    local f=t<96 and 1+t\5%2 or 15
    local x=t<96 and 26+(t-56)*.55 or 48
    sspr(f%8*16,f\8*24,16,24,x,38,32,48)
-   if (t>=112 and t<118) circfill(64,70,(t-110)*2,10) circfill(64,70,t-110,7)
+   if (t>=112 and t<118) circfill(77,47,(t-110)*2,10) circfill(77,47,t-110,7)
    if (t==112) sfx(0)
   end
  end
+ -- blood runs down the screen after the shot
+ if t>=118 then
+  for x=0,127 do line(x,-1,x,(t-118)*2.5-14+sin(x/41)*6+sin(x/17)*4+x*7%5,8) end
+ end
  print("\^w\^tsecret agent",17,5,0)
  print("\^w\^tsecret agent",16,4,7)
- print("\^w\^tman",52,16,8)
+ print("\^w\^tman",53,17,0)
+ print("\^w\^tman",52,16,t>=118 and 7 or 8)
  if (stt>0 and t%4<2 or stt==0 and t%30<20) cprint("push button to start",102,7)
  cprint("hi-score "..sc(hi),112,9)
  print("z:fire x:jump \x94\x83:lift/stairs",4,122,5)
